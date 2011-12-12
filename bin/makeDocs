@@ -11,7 +11,7 @@ sep = "\a"                              # field separator (as values can contain
 class Doxyfile(object):
     """Represent a doxygen configuration file"""
 
-    def __init__(self, productName, docDir="doc", configFile="doxygen.conf"):
+    def __init__(self, productName, versionName=None, docDir="doc", configFile="doxygen.conf"):
         """Read and parse productName's config file.
 
         We'll look for it in eups"""
@@ -20,7 +20,7 @@ class Doxyfile(object):
         self.entries = {}
         self.mainpage = None
         #
-        pdir = eups.productDir(productName) # Look in the eups productDir
+        pdir = eups.productDir(productName, versionName) # Look in the eups productDir
         if pdir and os.path.exists(os.path.join(pdir, docDir, configFile)):
             self.baseDir = pdir
         else:
@@ -118,9 +118,9 @@ def main(products, useDot=True):
 
     productList = []
 
-    for p in products:
+    for p, v in products:
         try:
-            configs[p] = Doxyfile(p)
+            configs[p] = Doxyfile(p, v)
             productList.append(p)
         except RuntimeError, e:
             print >> sys.stderr, e
@@ -212,21 +212,28 @@ def main(products, useDot=True):
     print config
 
 if __name__ == "__main__":
-    from optparse import OptionParser
+    from argparse import ArgumentParser
 
-    parser = OptionParser()
-    parser.add_option("--nodot",
-                      action="store_false", dest="useDot", default=True,
-                      help="Don't use dot to generate diagrams")
+    parser = ArgumentParser()
+    parser.add_argument("--nodot", action="store_false", dest="useDot", default=True,
+                        help="Don't use dot to generate diagrams")
+    parser.add_argument("product", type=str, default=True,
+                        help="Product to document")
+    parser.add_argument("version", type=str, default=None, nargs="?",
+                        help="Version of product (current if omitted)")
 
-    (opts, args) = parser.parse_args()    
+    args = parser.parse_args()    
 
-    if not args:
-        args = """base utils ndarray afw ip_isr ip_diffim ip_utils
-        meas_astrom meas_algorithms meas_utils pex_exceptions
-        pex_logging pex_policy daf_base daf_persistence coadd_utils""".split()
+    products = set()
+    products.add((args.product, args.version,))
+    for p in eups.getDependencies(args.product, version):
+        name, version = p[0:2]
+        if name in ["implicitProducts",]:
+            continue
+        products.add((name, version))
 
-    if "doxygenTools" not in args:
-        args[0:0] = ["doxygenTools"]
+    products = list(products)
+    if "doxygenTools" not in products:
+        products[0:0] = [("doxygenTools", None)]
 
-    main(args, useDot=opts.useDot)
+    main(products, useDot=args.useDot)
