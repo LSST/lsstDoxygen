@@ -1,0 +1,226 @@
+#!/usr/bin/env python
+#
+from __future__ import with_statement
+
+import fnmatch, tempfile
+import os, re, sys
+import eups
+
+sep = "\a"                              # field separator (as values can contain whitespace)
+
+class Doxyfile(object):
+    """Represent a doxygen configuration file"""
+
+    def __init__(self, productName, docDir="doc", configFile="doxygen.conf"):
+        """Read and parse productName's config file.
+
+        We'll look for it in eups"""
+        
+        self.productName = productName
+        self.entries = {}
+        self.mainpage = None
+        #
+        pdir = eups.productDir(productName) # Look in the eups productDir
+        if pdir and os.path.exists(os.path.join(pdir, docDir, configFile)):
+            self.baseDir = pdir
+        else:
+            if configFile is None:
+                return
+            
+            raise RuntimeError("Unable to find %s's %s file" % (productName, configFile))
+
+        self.docDir = os.path.join(self.baseDir, docDir)
+
+        try:
+            body = [l for l in open(os.path.join(self.docDir, configFile)).readlines()
+                    if not re.search(r"^\s*#", l)]
+        except IOError, e:
+            print >> sys.stderr, e
+            return
+        
+        body = re.sub(r"\n+", "\n", "".join(body))
+        body = re.sub(r"\s*\\\n+\s*", sep, body)
+
+        for entry in body.split("\n"):
+            entry0 = entry              # for debugging
+            if re.search(r"^\s*$", entry):
+                continue
+
+            mat = re.search(r"^\s*(\S+)\s*\+?=\s*(.*)", entry)
+            if False and not mat:
+                import pdb; pdb.set_trace() 
+            assert mat
+
+            values = []
+            name = mat.group(1)
+
+            entries = mat.group(2)
+
+            if not re.search(r'"', entries):
+                entries = re.sub(r"\s+", sep, entries)
+
+            for entry in [e.strip() for e in entries.split(sep)]:
+                if not entry:
+                    continue
+                
+                if name in ("EXAMPLE_PATH", "EXCLUDE", "INCLUDE_PATH", "INPUT"):
+                    entry = os.path.normpath(os.path.join(self.docDir, entry))
+                #
+                # At least early in the Winter2012 refactoring, the doxygen.conf files refer to
+                # the build directories, not the as-installed locations, of the doxygenated files
+                #
+                if not os.path.exists(entry):
+                    mat = re.search(r"(.*)/(doc|include|examples|python|src|tests)/?([^\s\"]*)$", entry)
+                    if mat:
+                        pre, d, post = mat.groups()
+                        nentry = os.path.join(pdir, d, post)
+                        #print >> sys.stderr, nentry
+                        if os.path.exists(nentry):
+                            entry = nentry
+
+                if name == "INPUT":
+                    # Look for \mainpage tags
+                    for path, dirs, files in os.walk(entry):
+                        for f in [f for f in files if True or fnmatch.fnmatch(f, "*.dox")]:
+                            fullName = os.path.join(path, f)
+
+                            contents = "".join(open(fullName).readlines())
+                            if re.search(r"[@\\]mainpage", contents):
+                                self.mainpage = fullName
+
+                values.append(entry)
+
+            if name in ("DETAILS_AT_TOP",):
+                continue
+            elif name in ("EXAMPLE_PATTERNS"):
+                continue
+            elif name in ("@INCLUDE"):
+                continue
+            else:
+                value = sep.join(values)
+                
+            self.entries[name] = value
+
+    def __str__(self):
+        return ("# %s\n" % self.productName) + \
+               "\n".join(["%-30s = %s" % (k, " ".join(v.split(sep))) for k, v in self.entries.items()])
+
+    def items(self):
+        return self.entries.items()
+
+def main(products, useDot=True):
+    configs = {}
+
+    productList = []
+
+    for p in products:
+        try:
+            configs[p] = Doxyfile(p)
+            productList.append(p)
+        except RuntimeError, e:
+            print >> sys.stderr, e
+            pass
+
+    config = Doxyfile(" ".join(productList), configFile=None) # Just init the object, no config file
+
+    for p in productList:
+        for k, v in configs[p].items():
+            if not config.entries.has_key(k):
+                config.entries[k] = set()
+
+            if False:
+                if isinstance(v, basestring):
+                    v = [v]
+
+            for vv in v.split(sep):
+                if not vv:
+                    continue
+
+                if vv in ("yes", "no",):
+                    vv = vv.upper()
+
+                config.entries[k].add(vv)
+
+    #
+    # Fixup all but the first mainpage
+    #
+    def renamedMainpage(mainpage):
+        if not mainpage:
+            return None
+
+        return os.path.join(tempfile.gettempdir(), re.sub(r"/", "_", mainpage))
+
+    mainpage = None
+    for p in productList:
+        tmpName = renamedMainpage(configs[p].mainpage)
+        if not tmpName:
+            continue
+
+        if not mainpage:
+            mainpage = tmpName
+
+        with open(configs[p].mainpage) as fd:
+            with open(tmpName, "w") as ofd:
+                for line in fd.readlines():
+                    if mainpage == tmpName:
+                        line = re.sub(r"\*/", "", line) # mainpage apparently only has one comment block
+                    else:
+                        line = re.sub(r"[\\@]mainpage", r"\page %s" % p, line)
+                    print >> ofd, line
+
+        config.entries["EXCLUDE"].add(configs[p].mainpage)
+        config.entries["INPUT"].add(tmpName)
+    #
+    # Add references to the ex-mainpages to the mainpage
+    #
+    if mainpage:
+        with open(mainpage, "a") as ofd:
+            print >> ofd, "Packages for which documentation was gathered are:\n %s\n\n" % \
+                  ", ".join([re.sub(r"_", "::", "lsst::" + p) for p in sorted(productList) if p != "doxygenTools"])
+
+            print >> ofd, "Mainpages in sub-packages:"
+            for p in sorted(productList[1:]):
+                if not configs[p].mainpage:
+                    continue
+
+                tmpName = renamedMainpage(configs[p].mainpage)
+
+                print >> ofd, r"\li \subpage %s" % (p)
+
+            print >> ofd, "*/"
+
+    for k, v in config.items():
+        if "YES" in v and "NO" in v:
+            config.entries[k] = "YES"
+        else:
+            config.entries[k] = " ".join(config.entries[k])
+
+    config.entries["PROJECT_NAME"] = "LSST Applications"
+    config.entries["INLINE_SOURCES"] = "YES"
+    config.entries["SOURCE_BROWSER"] = "YES"
+    config.entries["SEARCHENGINE"] = "YES"
+    config.entries["SERVER_BASED_SEARCH"] = "YES"
+    config.entries["HAVE_DOT"] = "YES" if useDot else "NO"
+
+    config.entries["HTML_OUTPUT"] = os.path.join(".", "doc", "html")
+    config.entries["TAGFILES"] = ""
+    config.entries["GENERATE_TAGFILE"] = ""
+
+    print config
+
+if __name__ == "__main__":
+    from optparse import OptionParser
+
+    parser = OptionParser()
+    parser.add_option("--nodot",
+                      action="store_false", dest="useDot", default=True,
+                      help="Don't use dot to generate diagrams")
+
+    (opts, args) = parser.parse_args()    
+
+    if not args:
+        args = """doxygenTools base utils ndarray afw ip_isr ip_diffim ip_utils
+        meas_astrom meas_algorithms meas_utils pex_exceptions
+        pex_logging pex_policy daf_base daf_persistence coadd_utils""".split()
+
+    main(args, useDot=opts.useDot)

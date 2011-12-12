@@ -1,0 +1,7 @@
+.sconf_temp/
+.sconsign.dblite
+config.log
+doc/doxygen.conf
+doc/doxygenTools.tag
+doc/html
+ups/doxygenTools.cfgc
