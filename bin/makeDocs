@@ -65,18 +65,21 @@ class Doxyfile(object):
                 
                 if name in ("EXAMPLE_PATH", "EXCLUDE", "INCLUDE_PATH", "INPUT"):
                     entry = os.path.normpath(os.path.join(self.docDir, entry))
-                #
-                # At least early in the Winter2012 refactoring, the doxygen.conf files refer to
-                # the build directories, not the as-installed locations, of the doxygenated files
-                #
-                if not os.path.exists(entry):
-                    mat = re.search(r"(.*)/(doc|include|examples|python|src|tests)/?([^\s\"]*)$", entry)
+                    #
+                    # At least early in the Winter2012 refactoring, the doxygen.conf files refer to
+                    # the build directories, not the as-installed locations, of the doxygenated files
+                    #
+                    entry0 = entry
+                    mat = re.search(r"\"?(.*)/(doc|include|examples|python|src|tests)/?([^\s\"]*)\"?$", entry)
                     if mat:
                         pre, d, post = mat.groups()
-                        nentry = os.path.join(pdir, d, post)
-                        #print >> sys.stderr, nentry
-                        if os.path.exists(nentry):
-                            entry = nentry
+                        entry = os.path.join(pdir, d, post)
+
+                    if not os.path.exists(entry):
+                        if os.path.exists(entry0):
+                            entry = entry0
+                        else:
+                            continue
 
                 if name == "INPUT":
                     # Look for \mainpage tags
@@ -96,6 +99,8 @@ class Doxyfile(object):
                 continue
             elif name in ("@INCLUDE"):
                 continue
+            elif name in ("TAGFILES", "GENERATE_TAGFILE"):
+                continue            
             else:
                 value = sep.join(values)
                 
@@ -166,7 +171,7 @@ def main(products, useDot=True):
                         line = re.sub(r"\*/", "", line) # mainpage apparently only has one comment block
                     else:
                         line = re.sub(r"[\\@]mainpage", r"\page %s" % p, line)
-                    print >> ofd, line
+                    print >> ofd, line,
 
         config.entries["EXCLUDE"].add(configs[p].mainpage)
         config.entries["INPUT"].add(tmpName)
@@ -203,8 +208,6 @@ def main(products, useDot=True):
     config.entries["HAVE_DOT"] = "YES" if useDot else "NO"
 
     config.entries["HTML_OUTPUT"] = os.path.join(".", "doc", "html")
-    config.entries["TAGFILES"] = ""
-    config.entries["GENERATE_TAGFILE"] = ""
 
     print config
 
@@ -219,8 +222,11 @@ if __name__ == "__main__":
     (opts, args) = parser.parse_args()    
 
     if not args:
-        args = """doxygenTools base utils ndarray afw ip_isr ip_diffim ip_utils
+        args = """base utils ndarray afw ip_isr ip_diffim ip_utils
         meas_astrom meas_algorithms meas_utils pex_exceptions
         pex_logging pex_policy daf_base daf_persistence coadd_utils""".split()
+
+    if "doxygenTools" not in args:
+        args[0:0] = ["doxygenTools"]
 
     main(args, useDot=opts.useDot)
