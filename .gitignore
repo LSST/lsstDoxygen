@@ -2,6 +2,6 @@
 .sconsign.dblite
 config.log
 doc/doxygen.conf
-doc/doxygenTools.tag
+doc/lsstDoxygen.tag
 doc/html
-ups/doxygenTools.cfgc
+ups/lsstDoxygen.cfgc

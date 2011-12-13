@@ -3,15 +3,17 @@
 from __future__ import with_statement
 
 import fnmatch, tempfile
-import os, re, sys
+import os, pwd, re, sys
 import eups
 
 sep = "\a"                              # field separator (as values can contain whitespace)
+ignoredProducts = ["implicitProducts",]
 
 class Doxyfile(object):
     """Represent a doxygen configuration file"""
 
-    def __init__(self, productName, versionName=None, docDir="doc", configFile="doxygen.conf"):
+    def __init__(self, productName, versionName=None,
+                 docDir="doc", configFile="doxygen.conf"):
         """Read and parse productName's config file.
 
         We'll look for it in eups"""
@@ -26,7 +28,10 @@ class Doxyfile(object):
         else:
             if configFile is None:
                 return
-            
+
+            if productName in ignoredProducts:
+                return
+
             raise RuntimeError("Unable to find %s's %s file" % (productName, configFile))
 
         self.docDir = os.path.join(self.baseDir, docDir)
@@ -59,11 +64,13 @@ class Doxyfile(object):
             if not re.search(r'"', entries):
                 entries = re.sub(r"\s+", sep, entries)
 
+            entries = re.sub("[\"']", "", entries)
+
             for entry in [e.strip() for e in entries.split(sep)]:
                 if not entry:
                     continue
                 
-                if name in ("EXAMPLE_PATH", "EXCLUDE", "INCLUDE_PATH", "INPUT"):
+                if name in ("EXAMPLE_PATH", "EXCLUDE", "INCLUDE_PATH", "@INCLUDE_PATH", "INPUT"):
                     entry = os.path.normpath(os.path.join(self.docDir, entry))
                     #
                     # At least early in the Winter2012 refactoring, the doxygen.conf files refer to
@@ -84,7 +91,7 @@ class Doxyfile(object):
                 if name == "INPUT":
                     # Look for \mainpage tags
                     for path, dirs, files in os.walk(entry):
-                        for f in [f for f in files if True or fnmatch.fnmatch(f, "*.dox")]:
+                        for f in files:
                             fullName = os.path.join(path, f)
 
                             contents = "".join(open(fullName).readlines())
@@ -95,25 +102,35 @@ class Doxyfile(object):
 
             if name in ("DETAILS_AT_TOP",):
                 continue
-            elif name in ("EXAMPLE_PATTERNS"):
+            elif name in ("EXAMPLE_PATTERNS",):
                 continue
-            elif name in ("@INCLUDE"):
-                continue
-            elif name in ("TAGFILES", "GENERATE_TAGFILE"):
+            elif name in ("TAGFILES", "GENERATE_TAGFILE",):
                 continue            
             else:
                 value = sep.join(values)
                 
-            self.entries[name] = value
+            if not self.entries.has_key(name):
+                self.entries[name] = ""
+            else:
+                self.entries[name] += sep
+
+            self.entries[name] += value
 
     def __str__(self):
-        return ("# %s\n" % self.productName) + \
-               "\n".join(["%-30s = %s" % (k, " ".join(v.split(sep))) for k, v in self.entries.items()])
+        val = ["# %s" % self.productName,]
+
+        for k, v in self.entries.items():
+            if k in ("@INCLUDE"):         # must be on separate lines.  Grrr
+                for v in v.split():
+                    val.append("%-30s = %s" % (k, v))
+            else:
+                val.append("%-30s = %s" % (k, " ".join(v.split(sep))))
+        return "\n".join(val)
 
     def items(self):
         return self.entries.items()
 
-def main(products, useDot=True):
+def main(topProductName, products, htmlDir, useDot=True):
     configs = {}
 
     productList = []
@@ -179,9 +196,14 @@ def main(products, useDot=True):
     # Add references to the ex-mainpages to the mainpage
     #
     if mainpage:
-        with open(mainpage, "a") as ofd:
+        mainpageStr = "".join(open(mainpage).readlines())
+        mainpageStr = mainpageStr.replace("@@USERNAME@@", pwd.getpwuid(os.getuid())[4])
+        mainpageStr = mainpageStr.replace("@@TOP_PRODUCT@@", topProductName)
+        
+        with open(mainpage, "w") as ofd:
+            print >> ofd, mainpageStr
             print >> ofd, "Packages for which documentation was gathered are:\n %s\n\n" % \
-                  ", ".join([re.sub(r"_", "::", "lsst::" + p) for p in sorted(productList) if p != "doxygenTools"])
+                  ", ".join([re.sub(r"_", "::", "lsst::" + p) for p in sorted(productList) if p != "lsstDoxygen"])
 
             print >> ofd, "Mainpages in sub-packages:"
             for p in sorted(productList[1:]):
@@ -207,7 +229,7 @@ def main(products, useDot=True):
     config.entries["SERVER_BASED_SEARCH"] = "YES"
     config.entries["HAVE_DOT"] = "YES" if useDot else "NO"
 
-    config.entries["HTML_OUTPUT"] = os.path.join(".", "doc", "html")
+    config.entries["HTML_OUTPUT"] = args.htmlDir
 
     print config
 
@@ -217,6 +239,13 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--nodot", action="store_false", dest="useDot", default=True,
                         help="Don't use dot to generate diagrams")
+    parser.add_argument("--htmlDir", default=os.path.join(".", "doc", "html"),
+                        help="Directory to contain the generated docs")
+    parser.add_argument("-i", "--ignore",
+                        default="afwdata astrometry_net_data astrometry_net" +
+                        " boost cfitsio doxygen eigen fftw gcc gsl lsstDoxygen minuit2" +
+                        " mysqlclient numpy pyfits python scons sconsUtils setuptools swig wcslib xpa",
+                        help="List of products that should be ignored (as they don't have doxygen.conf files)")
     parser.add_argument("product", type=str, default=True,
                         help="Product to document")
     parser.add_argument("version", type=str, default=None, nargs="?",
@@ -224,16 +253,25 @@ if __name__ == "__main__":
 
     args = parser.parse_args()    
 
+    ignoredProducts += args.ignore.split()
+
+    productName = str(args.product)
+    if args.version:
+        productName += " " + str(args.product)
+
     products = set()
     products.add((args.product, args.version,))
-    for p in eups.getDependencies(args.product, version):
+    for p in eups.getDependencies(args.product, args.version):
         name, version = p[0:2]
-        if name in ["implicitProducts",]:
-            continue
-        products.add((name, version))
+        if name not in ignoredProducts:
+            products.add((name, version))
 
     products = list(products)
-    if "doxygenTools" not in products:
-        products[0:0] = [("doxygenTools", None)]
+    if len(products) == 1:
+        print >> sys.stderr, "Unable to find %s" % productName
+        sys.exit(1)
 
-    main(products, useDot=args.useDot)
+    if "lsstDoxygen" not in products:
+        products[0:0] = [("lsstDoxygen", eups.Tag("setup"))]
+
+    main(productName, products, args.htmlDir, useDot=args.useDot)

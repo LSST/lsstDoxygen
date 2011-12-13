@@ -1,0 +1,6 @@
+To use this package, you need to set it up and say
+   makeDocs [product [version]] | doxygen -
+
+This will generate a doxygen tree rooted at
+   doc/html/index.html
+containing all the available documentation for product and its dependencies
