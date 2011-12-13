@@ -257,7 +257,7 @@ if __name__ == "__main__":
 
     productName = str(args.product)
     if args.version:
-        productName += " " + str(args.product)
+        productName += " " + str(args.version)
 
     products = set()
     products.add((args.product, args.version,))
