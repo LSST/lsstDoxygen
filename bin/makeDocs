@@ -260,9 +260,12 @@ if __name__ == "__main__":
 
     ignoredProducts += args.ignore.split()
 
-    productName = str(args.product)
-    if args.version:
-        productName += " " + str(args.version)
+    prod = eups.Eups().findProduct(args.product, args.version)
+    if not prod:
+        print >> sys.stderr, "Unable to find %s" % productName
+        sys.exit(1)
+
+    productName = "%s %s" % (prod.name, prod.version)
 
     products = set()
     products.add((args.product, args.version,))
@@ -272,9 +275,6 @@ if __name__ == "__main__":
             products.add((name, version))
 
     products = list(products)
-    if len(products) == 1:
-        print >> sys.stderr, "Unable to find %s" % productName
-        sys.exit(1)
 
     if "lsstDoxygen" not in products:
         products[0:0] = [("lsstDoxygen", eups.Tag("setup"))]
