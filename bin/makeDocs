@@ -246,7 +246,9 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--ignore",
                         default="afwdata astrometry_net_data astrometry_net" +
                         " boost cfitsio doxygen eigen fftw gcc gsl lsstDoxygen minuit2" +
-                        " mysqlclient numpy pyfits python scons sconsUtils setuptools swig wcslib xpa",
+                        " mysqlclient numpy pyfits python scons sconsUtils setuptools swig wcslib xpa" +
+                        " git_core toolchain gmp tcltk mpfr freetype matplotlib mpc libpng sqlite pysqlite" +
+                        " suprime_data testdata_subaru meas_multifitData",
                         help="List of products that should be ignored (as they don't have doxygen.conf files)")
     parser.add_argument("product", type=str, default=True,
                         help="Product to document")
