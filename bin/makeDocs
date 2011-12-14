@@ -209,7 +209,14 @@ def main(topProductName, products, htmlDir, useDot=True):
                     ", ".join([re.sub(r"_", "::", "lsst::" + p) for p in sorted(productList) if p != "lsstDoxygen"])
                 
                 print >> ofd, "Mainpages in sub-packages:"
-                for p in sorted(productList[1:]):
+                productList.sort()
+                for i, p in enumerate(productList):
+                    if p == "lsstDoxygen":
+                        continue
+                    
+                    if i > 0 and p == productList[i - 1]:
+                        continue
+
                     if not configs[p].mainpage:
                         continue
 
