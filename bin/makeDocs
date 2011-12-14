@@ -197,7 +197,9 @@ def main(topProductName, products, htmlDir, useDot=True):
     #
     if mainpage:
         mainpageStr = "".join(open(mainpage).readlines())
-        mainpageStr = mainpageStr.replace("@@USERNAME@@", pwd.getpwuid(os.getuid())[4])
+
+        username = re.sub("(,.*)?", "", pwd.getpwuid(os.getuid())[4]) # strip anything after a ,
+        mainpageStr = mainpageStr.replace("@@USERNAME@@", username)
         mainpageStr = mainpageStr.replace("@@TOP_PRODUCT@@", topProductName)
         
         with open(mainpage, "w") as ofd:
