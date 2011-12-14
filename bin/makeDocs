@@ -170,7 +170,7 @@ def main(topProductName, products, htmlDir, useDot=True):
         if not mainpage:
             return None
 
-        return os.path.join(tempfile.gettempdir(), re.sub(r"/", "_", mainpage))
+        return os.path.join(tempfile.mkdtemp(prefix="lsstDoxygen"), re.sub(r"/", "_", mainpage))
 
     mainpage = None
     for p in productList:
