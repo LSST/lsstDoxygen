@@ -204,17 +204,18 @@ def main(topProductName, products, htmlDir, useDot=True):
         
         with open(mainpage, "w") as ofd:
             print >> ofd, mainpageStr
-            print >> ofd, "Packages for which documentation was gathered are:\n %s\n\n" % \
-                  ", ".join([re.sub(r"_", "::", "lsst::" + p) for p in sorted(productList) if p != "lsstDoxygen"])
+            if [k for k, v in configs.items() if k != "lsstDoxygen" and v.mainpage]:
+                print >> ofd, "Packages for which documentation was gathered are:\n %s\n\n" % \
+                    ", ".join([re.sub(r"_", "::", "lsst::" + p) for p in sorted(productList) if p != "lsstDoxygen"])
+                
+                print >> ofd, "Mainpages in sub-packages:"
+                for p in sorted(productList[1:]):
+                    if not configs[p].mainpage:
+                        continue
 
-            print >> ofd, "Mainpages in sub-packages:"
-            for p in sorted(productList[1:]):
-                if not configs[p].mainpage:
-                    continue
+                    tmpName = renamedMainpage(configs[p].mainpage)
 
-                tmpName = renamedMainpage(configs[p].mainpage)
-
-                print >> ofd, r"\li \subpage %s" % (p)
+                    print >> ofd, r"\li \subpage %s" % (p)
 
             print >> ofd, "*/"
 
