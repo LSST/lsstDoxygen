@@ -251,6 +251,8 @@ if __name__ == "__main__":
                         help="Don't use dot to generate diagrams")
     parser.add_argument("--htmlDir", default=os.path.join(".", "doc", "html"),
                         help="Directory to contain the generated docs")
+    parser.add_argument("--setup", "-s", action="store_true", dest="asSetup", default=False,
+                        help="Generate documention for as-setup versions of products")
     parser.add_argument("-i", "--ignore",
                         default="afwdata astrometry_net_data astrometry_net" +
                         " boost cfitsio doxygen eigen fftw gcc gsl lsstDoxygen minuit2" +
@@ -267,7 +269,7 @@ if __name__ == "__main__":
 
     ignoredProducts += args.ignore.split()
 
-    prod = eups.Eups().findProduct(args.product, args.version)
+    prod = eups.findProduct(args.product, args.version)
     if not prod:
         print >> sys.stderr, "Unable to find %s" % productName
         sys.exit(1)
@@ -278,8 +280,15 @@ if __name__ == "__main__":
     products.add((args.product, args.version,))
     for p in eups.getDependencies(args.product, args.version):
         name, version = p[0:2]
-        if name not in ignoredProducts:
-            products.add((name, version))
+        if name in ignoredProducts:
+            continue
+
+        if args.asSetup:
+            p = eups.findProduct(name, eups.Tag("setup"))
+            if p:
+                version = p.version
+
+        products.add((name, version))
 
     products = list(products)
 
