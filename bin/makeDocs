@@ -269,7 +269,8 @@ if __name__ == "__main__":
 
     ignoredProducts += args.ignore.split()
 
-    prod = eups.findProduct(args.product, args.version)
+    Eups = eups.Eups()                  # fixed in 1.2.30
+    prod = Eups.findProduct(args.product, args.version)
     if not prod:
         print >> sys.stderr, "Unable to find %s" % productName
         sys.exit(1)
@@ -284,7 +285,7 @@ if __name__ == "__main__":
             continue
 
         if args.asSetup:
-            p = eups.findProduct(name, eups.Tag("setup"))
+            p = Eups.findProduct(name, eups.Tag("setup"))
             if p:
                 version = p.version
 
