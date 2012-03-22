@@ -52,8 +52,6 @@ class Doxyfile(object):
                 continue
 
             mat = re.search(r"^\s*(\S+)\s*\+?=\s*(.*)", entry)
-            if False and not mat:
-                import pdb; pdb.set_trace() 
             assert mat
 
             values = []
@@ -214,7 +212,9 @@ def main(topProductName, products, htmlDir, useDot=True):
                     if p == "lsstDoxygen":
                         continue
                     
-                    if i > 0 and p == productList[i - 1]:
+                    if False:
+                        if i > 0 and p == productList[i - 1]:
+                            continue
                         continue
 
                     if not configs[p].mainpage:
