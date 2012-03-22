@@ -26,6 +26,9 @@ class Doxyfile(object):
         if pdir and os.path.exists(os.path.join(pdir, docDir, configFile)):
             self.baseDir = pdir
         else:
+            if productName == "lsstDoxygen":
+                raise RuntimeError("Please run scons on lsstDoxygen and try again")
+
             if configFile is None:
                 return
 
@@ -132,14 +135,21 @@ def main(topProductName, products, htmlDir, useDot=True):
     configs = {}
 
     productList = []
-
     for p, v in products:
         try:
             configs[p] = Doxyfile(p, v)
             productList.append(p)
+
+            if p == "sconsUtils":    # doesn't have a standard LSST doxygen.conf file
+                configs[p].entries = dict([(k, v) for k, v in configs[p].entries.items()
+                                           if k in ("EXCLUDE", "INPUT", "PROJECT_NAME",)])
+
         except RuntimeError, e:
+            if p == "lsstDoxygen":
+                print >> sys.stderr, e
+                sys.exit(1)
+            
             print >> sys.stderr, e
-            pass
 
     config = Doxyfile(" ".join(productList), configFile=None) # Just init the object, no config file
 
@@ -164,11 +174,11 @@ def main(topProductName, products, htmlDir, useDot=True):
     #
     # Fixup all but the first mainpage
     #
-    def renamedMainpage(mainpage):
+    def renamedMainpage(mainpage, tmpDir=tempfile.mkdtemp(prefix="lsstDoxygen")):
         if not mainpage:
             return None
 
-        return os.path.join(tempfile.mkdtemp(prefix="lsstDoxygen"), re.sub(r"/", "_", mainpage))
+        return os.path.join(tmpDir, re.sub(r"/", "_", mainpage))
 
     mainpage = None
     for p in productList:
@@ -200,21 +210,21 @@ def main(topProductName, products, htmlDir, useDot=True):
         mainpageStr = mainpageStr.replace("@@USERNAME@@", username)
         mainpageStr = mainpageStr.replace("@@TOP_PRODUCT@@", topProductName)
         
+        productList = sorted(list(set([p for p in productList if p != "lsstDoxygen"])))
+
         with open(mainpage, "w") as ofd:
             print >> ofd, mainpageStr
             if [k for k, v in configs.items() if k != "lsstDoxygen" and v.mainpage]:
                 print >> ofd, "Packages for which documentation was gathered are:\n %s\n\n" % \
-                    ", ".join([re.sub(r"_", "::", "lsst::" + p) for p in sorted(productList) if p != "lsstDoxygen"])
+                    ", ".join([re.sub(r"_", "::", "lsst::" + p) for p in productList])
                 
                 print >> ofd, "Mainpages in sub-packages:"
-                productList.sort()
                 for i, p in enumerate(productList):
-                    if p == "lsstDoxygen":
-                        continue
-                    
                     if False:
                         if i > 0 and p == productList[i - 1]:
                             continue
+
+                    if p == topProductName.split()[0]:
                         continue
 
                     if not configs[p].mainpage:
@@ -232,6 +242,8 @@ def main(topProductName, products, htmlDir, useDot=True):
         else:
             config.entries[k] = " ".join(config.entries[k])
 
+    project_number = set(re.split(r"\s", config.entries.get("PROJECT_NUMBER", "")))
+    config.entries["PROJECT_NUMBER"] = ",".join(sorted(project_number))
     config.entries["PROJECT_NAME"] = "LSST Applications"
     config.entries["INLINE_SOURCES"] = "YES"
     config.entries["SOURCE_BROWSER"] = "YES"
@@ -256,7 +268,7 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--ignore",
                         default="afwdata astrometry_net_data astrometry_net" +
                         " boost cfitsio doxygen eigen fftw gcc gsl lsstDoxygen minuit2" +
-                        " mysqlclient numpy pyfits python scons sconsUtils setuptools swig wcslib xpa" +
+                        " mysqlclient numpy pyfits python scons setuptools swig wcslib xpa" +
                         " git_core toolchain gmp tcltk mpfr freetype matplotlib mpc libpng sqlite pysqlite" +
                         " suprime_data testdata_subaru meas_multifitData",
                         help="List of products that should be ignored (as they don't have doxygen.conf files)")
