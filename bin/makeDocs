@@ -3,6 +3,7 @@
 from __future__ import with_statement
 
 import fnmatch, tempfile
+import hashlib
 import os, pwd, re, sys
 import eups
 
