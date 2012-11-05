@@ -120,6 +120,17 @@ class Doxyfile(object):
 
     def __str__(self):
         val = ["# %s" % self.productName,]
+        #
+        # Keys that appear first, and in this order.
+        # The necessity for @INCLUDE_PATH to appear before @INCLUDE seems to be a feature of doxygen 1.8.2
+        #
+        ordered_keys = [
+            "@INCLUDE_PATH",
+            ]
+        for k in ordered_keys:
+            if self.entries.has_key(k):
+                val.append("%-30s = %s" % (k, " ".join(self.entries[k].split(sep))))
+                del self.entries[k]
 
         for k, v in self.entries.items():
             if k in ("@INCLUDE"):         # must be on separate lines.  Grrr
