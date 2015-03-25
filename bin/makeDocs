@@ -72,7 +72,7 @@ class Doxyfile(object):
                 if not entry:
                     continue
                 
-                if name in ("EXAMPLE_PATH", "EXCLUDE", "INCLUDE_PATH", "@INCLUDE_PATH", "INPUT"):
+                if name in ("EXAMPLE_PATH", "EXCLUDE", "INCLUDE_PATH", "@INCLUDE_PATH", "INPUT", "IMAGE_PATH"):
                     entry = os.path.normpath(os.path.join(self.docDir, entry))
                     #
                     # At least early in the Winter2012 refactoring, the doxygen.conf files refer to
