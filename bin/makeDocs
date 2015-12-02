@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #
 from __future__ import with_statement
+from __future__ import print_function
 
 import fnmatch, tempfile
 import hashlib
@@ -43,8 +44,8 @@ class Doxyfile(object):
         try:
             body = [l for l in open(os.path.join(self.docDir, configFile)).readlines()
                     if not re.search(r"^\s*#", l)]
-        except IOError, e:
-            print >> sys.stderr, e
+        except IOError as e:
+            print(e, file=sys.stderr)
             return
         
         body = re.sub(r"\n+", "\n", "".join(body))
@@ -111,7 +112,7 @@ class Doxyfile(object):
             else:
                 value = sep.join(values)
                 
-            if not self.entries.has_key(name):
+            if name not in self.entries:
                 self.entries[name] = ""
             else:
                 self.entries[name] += sep
@@ -128,7 +129,7 @@ class Doxyfile(object):
             "@INCLUDE_PATH",
             ]
         for k in ordered_keys:
-            if self.entries.has_key(k):
+            if k in self.entries:
                 val.append("%-30s = %s" % (k, " ".join(self.entries[k].split(sep))))
                 del self.entries[k]
 
@@ -156,18 +157,18 @@ def main(topProductName, products, htmlDir, useDot=True):
                 configs[p].entries = dict([(k, v) for k, v in configs[p].entries.items()
                                            if k in ("EXCLUDE", "INPUT", "PROJECT_NAME",)])
 
-        except RuntimeError, e:
+        except RuntimeError as e:
             if p == "lsstDoxygen":
-                print >> sys.stderr, e
+                print(e, file=sys.stderr)
                 sys.exit(1)
             
-            print >> sys.stderr, e
+            print(e, file=sys.stderr)
 
     config = Doxyfile(" ".join(productList), configFile=None) # Just init the object, no config file
 
     for p in productList:
         for k, v in configs[p].items():
-            if not config.entries.has_key(k):
+            if k not in config.entries:
                 config.entries[k] = set()
 
             if False:
@@ -213,7 +214,7 @@ def main(topProductName, products, htmlDir, useDot=True):
                         line = re.sub(r"\*/", "", line) # mainpage apparently only has one comment block
                     else:
                         line = re.sub(r"[\\@]mainpage", r"\page %s" % p, line)
-                    print >> ofd, line,
+                    print(line, end=' ', file=ofd)
 
         config.entries["EXCLUDE"].add(configs[p].mainpage)
         config.entries["INPUT"].add(tmpName)
@@ -230,12 +231,12 @@ def main(topProductName, products, htmlDir, useDot=True):
         productList = sorted(list(set([p for p in productList if p != "lsstDoxygen"])))
 
         with open(mainpage, "w") as ofd:
-            print >> ofd, mainpageStr
+            print(mainpageStr, file=ofd)
             if [k for k, v in configs.items() if k != "lsstDoxygen" and v.mainpage]:
-                print >> ofd, "Packages for which documentation was gathered are:\n %s\n\n" % \
-                    ", ".join([re.sub(r"_", "::", "lsst::" + p) for p in productList])
+                print("Packages for which documentation was gathered are:\n %s\n\n" % \
+                    ", ".join([re.sub(r"_", "::", "lsst::" + p) for p in productList]), file=ofd)
                 
-                print >> ofd, "Mainpages in sub-packages:"
+                print("Mainpages in sub-packages:", file=ofd)
                 for i, p in enumerate(productList):
                     if False:
                         if i > 0 and p == productList[i - 1]:
@@ -249,9 +250,9 @@ def main(topProductName, products, htmlDir, useDot=True):
 
                     tmpName = renamedMainpage(configs[p].mainpage)
 
-                    print >> ofd, r"\li \subpage %s" % (p)
+                    print(r"\li \subpage %s" % (p), file=ofd)
 
-            print >> ofd, "*/"
+            print("*/", file=ofd)
 
     for k, v in config.items():
         if "YES" in v and "NO" in v:
@@ -270,7 +271,7 @@ def main(topProductName, products, htmlDir, useDot=True):
 
     config.entries["HTML_OUTPUT"] = args.htmlDir
 
-    print config
+    print(config)
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
@@ -301,7 +302,7 @@ if __name__ == "__main__":
     Eups = eups.Eups()                  # fixed in 1.2.30
     prod = Eups.findProduct(args.product, args.version)
     if not prod:
-        print >> sys.stderr, "Unable to find %s" % productName
+        print("Unable to find %s" % productName, file=sys.stderr)
         sys.exit(1)
 
     productName = "%s %s" % (prod.name, prod.version)
