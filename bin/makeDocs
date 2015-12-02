@@ -1,14 +1,19 @@
 #!/usr/bin/env python
 #
 from __future__ import with_statement
+from __future__ import print_function
 
-import fnmatch, tempfile
+import tempfile
 import hashlib
-import os, pwd, re, sys
+import os
+import pwd
+import re
+import sys
 import eups
 
 sep = "\a"                              # field separator (as values can contain whitespace)
-ignoredProducts = ["implicitProducts",]
+ignoredProducts = ["implicitProducts"]
+
 
 class Doxyfile(object):
     """Represent a doxygen configuration file"""
@@ -18,12 +23,12 @@ class Doxyfile(object):
         """Read and parse productName's config file.
 
         We'll look for it in eups"""
-        
+
         self.productName = productName
         self.entries = {}
         self.mainpage = None
         #
-        pdir = eups.productDir(productName, versionName) # Look in the eups productDir
+        pdir = eups.productDir(productName, versionName)  # Look in the eups productDir
         if pdir and os.path.exists(os.path.join(pdir, docDir, configFile)):
             self.baseDir = pdir
         else:
@@ -43,10 +48,10 @@ class Doxyfile(object):
         try:
             body = [l for l in open(os.path.join(self.docDir, configFile)).readlines()
                     if not re.search(r"^\s*#", l)]
-        except IOError, e:
-            print >> sys.stderr, e
+        except IOError as e:
+            print(e, file=sys.stderr)
             return
-        
+
         body = re.sub(r"\n+", "\n", "".join(body))
         body = re.sub(r"\s*\\\n+\s*", sep, body)
 
@@ -71,7 +76,7 @@ class Doxyfile(object):
             for entry in [e.strip() for e in entries.split(sep)]:
                 if not entry:
                     continue
-                
+
                 if name in ("EXAMPLE_PATH", "EXCLUDE", "INCLUDE_PATH", "@INCLUDE_PATH", "INPUT", "IMAGE_PATH"):
                     entry = os.path.normpath(os.path.join(self.docDir, entry))
                     #
@@ -107,11 +112,11 @@ class Doxyfile(object):
             elif name in ("EXAMPLE_PATTERNS",):
                 continue
             elif name in ("TAGFILES", "GENERATE_TAGFILE",):
-                continue            
+                continue
             else:
                 value = sep.join(values)
-                
-            if not self.entries.has_key(name):
+
+            if name not in self.entries:
                 self.entries[name] = ""
             else:
                 self.entries[name] += sep
@@ -119,7 +124,7 @@ class Doxyfile(object):
             self.entries[name] += value
 
     def __str__(self):
-        val = ["# %s" % self.productName,]
+        val = ["# %s" % self.productName]
         #
         # Keys that appear first, and in this order.
         # The necessity for @INCLUDE_PATH to appear before @INCLUDE seems to be a feature of doxygen 1.8.2
@@ -128,7 +133,7 @@ class Doxyfile(object):
             "@INCLUDE_PATH",
             ]
         for k in ordered_keys:
-            if self.entries.has_key(k):
+            if k in self.entries:
                 val.append("%-30s = %s" % (k, " ".join(self.entries[k].split(sep))))
                 del self.entries[k]
 
@@ -143,6 +148,7 @@ class Doxyfile(object):
     def items(self):
         return self.entries.items()
 
+
 def main(topProductName, products, htmlDir, useDot=True):
     configs = {}
 
@@ -156,18 +162,16 @@ def main(topProductName, products, htmlDir, useDot=True):
                 configs[p].entries = dict([(k, v) for k, v in configs[p].entries.items()
                                            if k in ("EXCLUDE", "INPUT", "PROJECT_NAME",)])
 
-        except RuntimeError, e:
+        except RuntimeError as e:
+            print(e, file=sys.stderr)
             if p == "lsstDoxygen":
-                print >> sys.stderr, e
                 sys.exit(1)
-            
-            print >> sys.stderr, e
 
-    config = Doxyfile(" ".join(productList), configFile=None) # Just init the object, no config file
+    config = Doxyfile(" ".join(productList), configFile=None)  # Just init the object, no config file
 
     for p in productList:
         for k, v in configs[p].items():
-            if not config.entries.has_key(k):
+            if k not in config.entries:
                 config.entries[k] = set()
 
             if False:
@@ -190,11 +194,11 @@ def main(topProductName, products, htmlDir, useDot=True):
         if not mainpage:
             return None
 
-        mainpage = re.sub(r"/", "_", mainpage) # can be a Very long path
+        mainpage = re.sub(r"/", "_", mainpage)  # can be a Very long path
 
         ext = os.path.splitext(mainpage)[1]
-        mainpage = hashlib.sha1(mainpage).hexdigest() + ext # guaranteed size
-        
+        mainpage = hashlib.sha1(mainpage).hexdigest() + ext  # guaranteed size
+
         return os.path.join(tmpDir, mainpage)
 
     mainpage = None
@@ -210,10 +214,10 @@ def main(topProductName, products, htmlDir, useDot=True):
             with open(tmpName, "w") as ofd:
                 for line in fd.readlines():
                     if mainpage == tmpName:
-                        line = re.sub(r"\*/", "", line) # mainpage apparently only has one comment block
+                        line = re.sub(r"\*/", "", line)  # mainpage apparently only has one comment block
                     else:
                         line = re.sub(r"[\\@]mainpage", r"\page %s" % p, line)
-                    print >> ofd, line,
+                    print(line, end=' ', file=ofd)
 
         config.entries["EXCLUDE"].add(configs[p].mainpage)
         config.entries["INPUT"].add(tmpName)
@@ -223,19 +227,19 @@ def main(topProductName, products, htmlDir, useDot=True):
     if mainpage:
         mainpageStr = "".join(open(mainpage).readlines())
 
-        username = re.sub("(,.*)?", "", pwd.getpwuid(os.getuid())[4]) # strip anything after a ,
+        username = re.sub("(,.*)?", "", pwd.getpwuid(os.getuid())[4])  # strip anything after a ,
         mainpageStr = mainpageStr.replace("@@USERNAME@@", username)
         mainpageStr = mainpageStr.replace("@@TOP_PRODUCT@@", topProductName)
-        
+
         productList = sorted(list(set([p for p in productList if p != "lsstDoxygen"])))
 
         with open(mainpage, "w") as ofd:
-            print >> ofd, mainpageStr
+            print(mainpageStr, file=ofd)
             if [k for k, v in configs.items() if k != "lsstDoxygen" and v.mainpage]:
-                print >> ofd, "Packages for which documentation was gathered are:\n %s\n\n" % \
-                    ", ".join([re.sub(r"_", "::", "lsst::" + p) for p in productList])
-                
-                print >> ofd, "Mainpages in sub-packages:"
+                print("Packages for which documentation was gathered are:\n %s\n\n" %
+                      ", ".join([re.sub(r"_", "::", "lsst::" + p) for p in productList]), file=ofd)
+
+                print("Mainpages in sub-packages:", file=ofd)
                 for i, p in enumerate(productList):
                     if False:
                         if i > 0 and p == productList[i - 1]:
@@ -249,9 +253,9 @@ def main(topProductName, products, htmlDir, useDot=True):
 
                     tmpName = renamedMainpage(configs[p].mainpage)
 
-                    print >> ofd, r"\li \subpage %s" % (p)
+                    print(r"\li \subpage %s" % (p), file=ofd)
 
-            print >> ofd, "*/"
+            print("*/", file=ofd)
 
     for k, v in config.items():
         if "YES" in v and "NO" in v:
@@ -270,7 +274,7 @@ def main(topProductName, products, htmlDir, useDot=True):
 
     config.entries["HTML_OUTPUT"] = args.htmlDir
 
-    print config
+    print(config)
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
@@ -294,14 +298,14 @@ if __name__ == "__main__":
     parser.add_argument("version", type=str, default=None, nargs="?",
                         help="Version of product (current if omitted)")
 
-    args = parser.parse_args()    
+    args = parser.parse_args()
 
     ignoredProducts += args.ignore.split()
 
     Eups = eups.Eups()                  # fixed in 1.2.30
     prod = Eups.findProduct(args.product, args.version)
     if not prod:
-        print >> sys.stderr, "Unable to find %s" % productName
+        print("Unable to find %s" % args.product, file=sys.stderr)
         sys.exit(1)
 
     productName = "%s %s" % (prod.name, prod.version)
