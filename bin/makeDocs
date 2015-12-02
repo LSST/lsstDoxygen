@@ -302,7 +302,7 @@ if __name__ == "__main__":
     Eups = eups.Eups()                  # fixed in 1.2.30
     prod = Eups.findProduct(args.product, args.version)
     if not prod:
-        print("Unable to find %s" % productName, file=sys.stderr)
+        print("Unable to find %s" % args.product, file=sys.stderr)
         sys.exit(1)
 
     productName = "%s %s" % (prod.name, prod.version)
