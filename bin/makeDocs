@@ -19,7 +19,7 @@ class Doxyfile(object):
         """Read and parse productName's config file.
 
         We'll look for it in eups"""
-        
+
         self.productName = productName
         self.entries = {}
         self.mainpage = None
@@ -47,7 +47,7 @@ class Doxyfile(object):
         except IOError as e:
             print(e, file=sys.stderr)
             return
-        
+
         body = re.sub(r"\n+", "\n", "".join(body))
         body = re.sub(r"\s*\\\n+\s*", sep, body)
 
@@ -72,7 +72,7 @@ class Doxyfile(object):
             for entry in [e.strip() for e in entries.split(sep)]:
                 if not entry:
                     continue
-                
+
                 if name in ("EXAMPLE_PATH", "EXCLUDE", "INCLUDE_PATH", "@INCLUDE_PATH", "INPUT", "IMAGE_PATH"):
                     entry = os.path.normpath(os.path.join(self.docDir, entry))
                     #
@@ -108,10 +108,10 @@ class Doxyfile(object):
             elif name in ("EXAMPLE_PATTERNS",):
                 continue
             elif name in ("TAGFILES", "GENERATE_TAGFILE",):
-                continue            
+                continue
             else:
                 value = sep.join(values)
-                
+
             if name not in self.entries:
                 self.entries[name] = ""
             else:
@@ -161,7 +161,7 @@ def main(topProductName, products, htmlDir, useDot=True):
             if p == "lsstDoxygen":
                 print(e, file=sys.stderr)
                 sys.exit(1)
-            
+
             print(e, file=sys.stderr)
 
     config = Doxyfile(" ".join(productList), configFile=None) # Just init the object, no config file
@@ -195,7 +195,7 @@ def main(topProductName, products, htmlDir, useDot=True):
 
         ext = os.path.splitext(mainpage)[1]
         mainpage = hashlib.sha1(mainpage).hexdigest() + ext # guaranteed size
-        
+
         return os.path.join(tmpDir, mainpage)
 
     mainpage = None
@@ -227,7 +227,7 @@ def main(topProductName, products, htmlDir, useDot=True):
         username = re.sub("(,.*)?", "", pwd.getpwuid(os.getuid())[4]) # strip anything after a ,
         mainpageStr = mainpageStr.replace("@@USERNAME@@", username)
         mainpageStr = mainpageStr.replace("@@TOP_PRODUCT@@", topProductName)
-        
+
         productList = sorted(list(set([p for p in productList if p != "lsstDoxygen"])))
 
         with open(mainpage, "w") as ofd:
@@ -235,7 +235,7 @@ def main(topProductName, products, htmlDir, useDot=True):
             if [k for k, v in configs.items() if k != "lsstDoxygen" and v.mainpage]:
                 print("Packages for which documentation was gathered are:\n %s\n\n" % \
                     ", ".join([re.sub(r"_", "::", "lsst::" + p) for p in productList]), file=ofd)
-                
+
                 print("Mainpages in sub-packages:", file=ofd)
                 for i, p in enumerate(productList):
                     if False:
@@ -295,7 +295,7 @@ if __name__ == "__main__":
     parser.add_argument("version", type=str, default=None, nargs="?",
                         help="Version of product (current if omitted)")
 
-    args = parser.parse_args()    
+    args = parser.parse_args()
 
     ignoredProducts += args.ignore.split()
 
