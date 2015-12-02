@@ -3,9 +3,13 @@
 from __future__ import with_statement
 from __future__ import print_function
 
-import fnmatch, tempfile
+import fnmatch
+import tempfile
 import hashlib
-import os, pwd, re, sys
+import os
+import pwd
+import re
+import sys
 import eups
 
 sep = "\a"                              # field separator (as values can contain whitespace)
