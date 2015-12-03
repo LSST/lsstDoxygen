@@ -15,6 +15,15 @@ sep = "\a"                              # field separator (as values can contain
 ignoredProducts = ["implicitProducts"]
 
 
+def quote_path(path):
+    """Quote a file path suitable for Doxygen config files.
+       Doxygen requires double quotes rather than single quotes
+       so pipes.quote() can not be used. Only quotes a path
+       if there are spaces in it."""
+    if " " in path:
+        return '"{}"'.format(path)
+    return path
+
 class Doxyfile(object):
     """Represent a doxygen configuration file"""
 
@@ -55,6 +64,10 @@ class Doxyfile(object):
         body = re.sub(r"\n+", "\n", "".join(body))
         body = re.sub(r"\s*\\\n+\s*", sep, body)
 
+        # List of path-like doxygen configuration options
+        PATH_LIKE = ("EXAMPLE_PATH", "EXCLUDE", "INCLUDE_PATH", "@INCLUDE_PATH", "INPUT", "IMAGE_PATH",
+                     "GENERATE_TAGFILE")
+
         for entry in body.split("\n"):
             entry0 = entry              # for debugging
             if re.search(r"^\s*$", entry):
@@ -65,19 +78,55 @@ class Doxyfile(object):
 
             values = []
             name = mat.group(1)
+            is_path_name = name in PATH_LIKE
 
             entries = mat.group(2)
 
-            if not re.search(r'"', entries):
-                entries = re.sub(r"\s+", sep, entries)
+            # Path entries can be double-quoted if they are paths that might contain spaces
+            # An entry could look like: a "b c" "d" or "a b" c d
+            # A regex is hard unless quoting is consistent so we scan the string manually
+            # We have to be careful to only do this processing on PATH-like doxygen components
+            if is_path_name:
+                outstr = ""
+                in_quoted_item = False
+                for char in entries:
+                    if char not in ('"', "'", " "):
+                        outstr += char
+                    elif char == " ":
+                        # is this a separator or part of the individiual item?
+                        if not in_quoted_item:
+                            outstr += sep
+                        else:
+                            outstr += char
+                    elif char == '"':
+                        # are we starting a quoted string or ending one?
+                        # This does not need to end up in output string
+                        if in_quoted_item:
+                            in_quoted_item = False
+                        else:
+                            in_quoted_item = True
+                    elif char == "'":
+                        # strip single quotes
+                        pass
+                    else:
+                        raise ValueError("Unexpected error in doxygen.conf parsing code")
 
+                # it is possible that we have multiple spaces together in a path so we
+                # need to compress the separators
+                entries = re.sub(sep + "+", sep, outstr)
+            else:
+                # Replace spaces with separators unless the string contains a double quote
+                if not re.search(r'"', entries):
+                    entries = re.sub(r"\s+", sep, entries)
+
+            # Remove all single and double quotes
             entries = re.sub("[\"']", "", entries)
 
             for entry in [e.strip() for e in entries.split(sep)]:
                 if not entry:
                     continue
 
-                if name in ("EXAMPLE_PATH", "EXCLUDE", "INCLUDE_PATH", "@INCLUDE_PATH", "INPUT", "IMAGE_PATH"):
+                if is_path_name:
                     entry = os.path.normpath(os.path.join(self.docDir, entry))
                     #
                     # At least early in the Winter2012 refactoring, the doxygen.conf files refer to
@@ -104,6 +153,10 @@ class Doxyfile(object):
                             contents = "".join(open(fullName).readlines())
                             if re.search(r"[@\\]mainpage", contents):
                                 self.mainpage = fullName
+
+                if is_path_name:
+                    # Path entries may need to be quoted
+                    entry = quote_path(entry)
 
                 values.append(entry)
 
@@ -220,7 +273,7 @@ def main(topProductName, products, htmlDir, useDot=True):
                     print(line, end=' ', file=ofd)
 
         config.entries["EXCLUDE"].add(configs[p].mainpage)
-        config.entries["INPUT"].add(tmpName)
+        config.entries["INPUT"].add(quote_path(tmpName))
     #
     # Add references to the ex-mainpages to the mainpage
     #
