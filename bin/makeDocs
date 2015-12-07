@@ -9,6 +9,7 @@ import os
 import pwd
 import re
 import sys
+import csv
 import eups
 
 sep = "\a"                              # field separator (as values can contain whitespace)
@@ -23,6 +24,7 @@ def quote_path(path):
     if " " in path:
         return '"{}"'.format(path)
     return path
+
 
 class Doxyfile(object):
     """Represent a doxygen configuration file"""
@@ -84,36 +86,12 @@ class Doxyfile(object):
 
             # Path entries can be double-quoted if they are paths that might contain spaces
             # An entry could look like: a "b c" "d" or "a b" c d
-            # A regex is hard unless quoting is consistent so we scan the string manually
+            # Use the csv package to handle this.
             # We have to be careful to only do this processing on PATH-like doxygen components
             if is_path_name:
-                outstr = ""
-                in_quoted_item = False
-                for char in entries:
-                    if char not in ('"', "'", " "):
-                        outstr += char
-                    elif char == " ":
-                        # is this a separator or part of the individiual item?
-                        if not in_quoted_item:
-                            outstr += sep
-                        else:
-                            outstr += char
-                    elif char == '"':
-                        # are we starting a quoted string or ending one?
-                        # This does not need to end up in output string
-                        if in_quoted_item:
-                            in_quoted_item = False
-                        else:
-                            in_quoted_item = True
-                    elif char == "'":
-                        # strip single quotes
-                        pass
-                    else:
-                        raise ValueError("Unexpected error in doxygen.conf parsing code")
-
-                # it is possible that we have multiple spaces together in a path so we
-                # need to compress the separators
-                entries = re.sub(sep + "+", sep, outstr)
+                # skipinitialspace is used to handle multiple spaces between items
+                csv_reader = csv.reader([entries], delimiter=' ', quotechar='"', skipinitialspace=True)
+                entries = sep.join(next(csv_reader))
             else:
                 # Replace spaces with separators unless the string contains a double quote
                 if not re.search(r'"', entries):
