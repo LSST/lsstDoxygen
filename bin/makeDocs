@@ -180,7 +180,7 @@ class Doxyfile(object):
         return self.entries.items()
 
 
-def main(topProductName, products, htmlDir, useDot=True):
+def main(topProductName, products, htmlDir, xmlDir, useDot=True):
     configs = {}
 
     productList = []
@@ -303,7 +303,8 @@ def main(topProductName, products, htmlDir, useDot=True):
     config.entries["SERVER_BASED_SEARCH"] = "YES"
     config.entries["HAVE_DOT"] = "YES" if useDot else "NO"
 
-    config.entries["HTML_OUTPUT"] = args.htmlDir
+    config.entries["HTML_OUTPUT"] = htmlDir
+    config.entries["XML_OUTPUT"] = xmlDir
 
     print(config)
 
@@ -315,6 +316,8 @@ if __name__ == "__main__":
                         help="Don't use dot to generate diagrams")
     parser.add_argument("--htmlDir", default=os.path.join(".", "doc", "html"),
                         help="Directory to contain the generated docs")
+    parser.add_argument("--xmlDir", default=os.path.join(".", "doc", "xml"),
+                        help="Directory to contain the generated XML docs")
     parser.add_argument("--setup", "-s", action="store_true", dest="asSetup", default=False,
                         help="Generate documention for as-setup versions of products")
     parser.add_argument("-i", "--ignore",
@@ -360,4 +363,4 @@ if __name__ == "__main__":
     if "lsstDoxygen" not in products:
         products[0:0] = [("lsstDoxygen", eups.Tag("setup"))]
 
-    main(productName, products, args.htmlDir, useDot=args.useDot)
+    main(productName, products, args.htmlDir, args.xmlDir, useDot=args.useDot)
