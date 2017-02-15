@@ -127,8 +127,13 @@ class Doxyfile(object):
                     for path, dirs, files in os.walk(entry):
                         for f in files:
                             fullName = os.path.join(path, f)
-
-                            contents = "".join(open(fullName).readlines())
+                            contents = ""
+                            with open(fullName) as fh:
+                                try:
+                                    contents = "".join(fh.readlines())
+                                except UnicodeDecodeError:
+                                    # There can be binary files such as PNG images. We can ignore those.
+                                    pass
                             if re.search(r"[@\\]mainpage", contents):
                                 self.mainpage = fullName
 
@@ -228,7 +233,7 @@ def main(topProductName, products, htmlDir, xmlDir, useDot=True):
         mainpage = re.sub(r"/", "_", mainpage)  # can be a Very long path
 
         ext = os.path.splitext(mainpage)[1]
-        mainpage = hashlib.sha1(mainpage).hexdigest() + ext  # guaranteed size
+        mainpage = hashlib.sha1(mainpage.encode()).hexdigest() + ext  # guaranteed size
 
         return os.path.join(tmpDir, mainpage)
 
