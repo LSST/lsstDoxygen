@@ -4,6 +4,5 @@ config.log
 doc/doxygen.conf
 doc/lsstDoxygen.tag
 doc/html
-doc/xml
 ups/lsstDoxygen.cfgc
 python/lsst/lsstDoxygen/version.py
