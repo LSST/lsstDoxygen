@@ -305,7 +305,7 @@ def main(topProductName, products, htmlDir, xmlDir, useDot=True):
     config.entries["INLINE_SOURCES"] = "YES"
     config.entries["SOURCE_BROWSER"] = "YES"
     config.entries["SEARCHENGINE"] = "YES"
-    config.entries["SERVER_BASED_SEARCH"] = "YES"
+    config.entries["SERVER_BASED_SEARCH"] = "NO"
     config.entries["HAVE_DOT"] = "YES" if useDot else "NO"
 
     config.entries["HTML_OUTPUT"] = htmlDir
