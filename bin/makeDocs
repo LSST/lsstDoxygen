@@ -252,7 +252,7 @@ def main(topProductName, products, htmlDir, xmlDir, useDot=True):
                     if mainpage == tmpName:
                         line = re.sub(r"\*/", "", line)  # mainpage apparently only has one comment block
                     else:
-                        line = re.sub(r"[\\@]mainpage", r"\page %s" % p, line)
+                        line = re.sub(r"[\\@]mainpage", r"\\page %s" % p, line)
                     print(line, end=' ', file=ofd)
 
         config.entries["EXCLUDE"].add(configs[p].mainpage)
